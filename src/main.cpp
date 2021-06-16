@@ -13,6 +13,7 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include "AutoConnect.h"
+#include <esp_task_wdt.h>
 
 #define PARAM_FILE      "/keyble.json"
 #define AUX_SETTING_URI "/keyble_setting"
@@ -33,8 +34,13 @@
 
 #define CARD_KEY "M001AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
+#define WDT_TIMEOUT 20                   // WDT Timeout in 
+#define LED_GPIO  32                     // LED GPIO
+
+#define WEBSERVER_USER "admin"
+#define WEBSERVER_PW "admin"
+
 // ---[Variables]---------------------------------------------------------------
-#pragma region
 WebServer Server;
 AutoConnect Portal(Server);
 AutoConnectConfig config;
@@ -76,12 +82,11 @@ String mqtt_pub2 = "";
 String mqtt_pub3 = "";
 String mqtt_pub4 = "";
 
-
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
-#pragma endregion
+
 // ---[Add Menue Items]---------------------------------------------------------
-#pragma region
+
 static const char AUX_keyble_setting[] PROGMEM = R"raw(
 [
   {
@@ -180,7 +185,23 @@ static const char AUX_keyble_setting[] PROGMEM = R"raw(
 ]
 )raw";
 
-#pragma endregion
+static const char PAGE_AUTH[] PROGMEM = R"(
+{
+  "uri": "/auth",
+  "title": "Auth",
+  "menu": true,
+  "element": [
+    {
+      "name": "text",
+      "type": "ACText",
+      "value": "AutoConnect has authorized",
+      "style": "font-family:Arial;font-size:18px;font-weight:400;color:#191970"
+    }
+  ]
+}
+)";
+
+
 // ---[getParams]---------------------------------------------------------------
 void getParams(AutoConnectAux& aux) {
 
@@ -201,6 +222,8 @@ void getParams(AutoConnectAux& aux) {
   KeyBleUserId = aux["KeyBleUserId"].value;
   KeyBleUserId.trim();
  }
+
+
 // ---[loadParams]--------------------------------------------------------------
 String loadParams(AutoConnectAux& aux, PageArgument& args) {
   (void)(args);
@@ -222,6 +245,8 @@ String loadParams(AutoConnectAux& aux, PageArgument& args) {
     Serial.println("# " PARAM_FILE " open failed");
   return String("");
 }
+
+
 // ---[saveParams]--------------------------------------------------------------
 String saveParams(AutoConnectAux& aux, PageArgument& args) {
   AutoConnectAux&   keyble_setting = *Portal.aux(Portal.where());
@@ -245,6 +270,8 @@ String saveParams(AutoConnectAux& aux, PageArgument& args) {
 
   return String("");
 }
+
+
 // ---[MqttCallback]------------------------------------------------------------
 void MqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("# Message received: ");
@@ -294,6 +321,8 @@ void MqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.println(mqtt_sub);
   }
 }
+
+
 // ---[MQTTpublish]-------------------------------------------------------------
 void MqttPublish()
 {
@@ -371,6 +400,8 @@ void MqttPublish()
          
   Serial.println("# waiting for command...");
 }
+
+
 // ---[MQTT-Setup]--------------------------------------------------------------
 void SetupMqtt() {
   while (!mqttClient.connected()) { // Loop until we're reconnected to the MQTT server
@@ -387,6 +418,8 @@ void SetupMqtt() {
     }
   }
 }
+
+
 // ---[RootPage]----------------------------------------------------------------
 void rootPage()
 {
@@ -432,7 +465,7 @@ void rootPage()
      "<h2 align=\"center\" style=\"color:green;margin:20px;\">MQTT User Name: " + MqttUserName + "</h2>"
      "<h2 align=\"center\" style=\"color:green;margin:20px;\">MQTT Topic: " + MqttTopic + "</h2>"
      "<h2 align=\"center\" style=\"color:green;margin:20px;\">KeyBLE MAC Address: " + KeyBleMac + "</h2>"
-     "<h2 align=\"center\" style=\"color:green;margin:20px;\">KeyBLE User Key: " + KeyBleUserKey + "</h2>"
+     
      "<h2 align=\"center\" style=\"color:green;margin:20px;\">KeyBLE User ID: " + KeyBleUserId + "</h2>"
      "<h2 align=\"center\" style=\"color:green;margin:20px;\">KeyBLE last battery state: " + mqtt_pub3 + "</h2>"
      "<h2 align=\"center\" style=\"color:green;margin:20px;\">KeyBLE last command received: " + mqtt_sub + "</h2>"
@@ -441,6 +474,8 @@ void rootPage()
      "<h2 align=\"center\" style=\"color:green;margin:20px;\">KeyBLE last task: " + mqtt_pub2 + "</h2>"
      "<br>"
      "<h2 align=\"center\" style=\"color:blue;margin:20px;\">page refresh every 30 seconds</h2>";
+
+     //"<h2 align=\"center\" style=\"color:green;margin:20px;\">KeyBLE User Key: " + KeyBleUserKey + "</h2>"
   }
 
   content +=
@@ -448,6 +483,8 @@ void rootPage()
     "</html>";
   Server.send(200, "text/html", content);
 }
+
+
 // ---[Wifi Signalquality]-----------------------------------------------------
 int GetWifiSignalQuality() {
 float signal = 2 * (WiFi.RSSI() + 100);
@@ -456,6 +493,8 @@ if (signal > 100)
 else
   return signal;
 }
+
+
 // ---[SetWifi]-----------------------------------------------------------------
 void SetWifi(bool active) {
   wifiActive = active;
@@ -466,16 +505,22 @@ void SetWifi(bool active) {
   else {
     WiFi.mode(WIFI_OFF);
     Serial.println("# WiFi disabled");
+    digitalWrite(LED_GPIO,LOW);
   }
 }
+
+
 // ---[SetupWiFi]---------------------------------------------------------------
 void SetupWifi()
 {
+  digitalWrite(LED_GPIO,LOW);
+
   if (Portal.begin())
   {
    if (WiFi.status() == WL_CONNECTED)
    {
      Serial.println("# WIFI: connected to SSiD: " + WiFi.SSID());
+     digitalWrite(LED_GPIO,HIGH);
    } 
    int maxWait=100;
    while (WiFi.status() != WL_CONNECTED) {
@@ -489,8 +534,11 @@ void SetupWifi()
   Serial.println("# WIFI: connected!");
   Serial.println("# WIFI: signalquality: " + String(GetWifiSignalQuality()) + "%");
   Serial.println("# WiFi connected to IP: " + WiFi.localIP().toString());
+  digitalWrite(LED_GPIO,HIGH);
   }
 }
+
+
 // ---[Setup]-------------------------------------------------------------------
 void setup() {
   delay(1000);
@@ -511,8 +559,19 @@ void setup() {
   config.title = AP_TITLE;
   config.gateway = IPAddress(AP_IP);
   config.ota = AC_OTA_BUILTIN;
+
+  //basic auth
+  config.auth = AC_AUTH_DIGEST;
+  config.authScope = AC_AUTHSCOPE_AUX;
+  config.username = WEBSERVER_USER;
+  config.password = WEBSERVER_PW;
+
   Server.on("/", rootPage);
   Portal.config(config);
+  Portal.load(FPSTR(PAGE_AUTH));
+  
+  //status led
+  pinMode(LED_GPIO,OUTPUT);
   
   if (Portal.load(FPSTR(AUX_keyble_setting))) {
      AutoConnectAux& keyble_setting = *Portal.aux(AUX_SETTING_URI);
@@ -546,10 +605,17 @@ void setup() {
     Serial.println("# Please fill in MQTT and KeyBLE credentials first!");
 
   }
+  
+  //watchdog
+  esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
+  esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
+
 }
+
+
 // ---[loop]--------------------------------------------------------------------
 void loop() {
-
+ 
 Portal.handleClient();  
 
 // This statement will declare pin 0 as digital input 
@@ -568,6 +634,7 @@ if (Push_button_state == LOW && WiFi.status() == WL_CONNECTED)
 // Wifi reconnect
 if (wifiActive)
 {
+  digitalWrite(LED_GPIO,HIGH);
   if (WiFi.status() != WL_CONNECTED)
   {
    Serial.println("# WiFi disconnected, reconnect...");
@@ -598,6 +665,9 @@ if (wifiActive)
     else if(mqttClient.connected())
     {
       mqttClient.loop();
+      digitalWrite(LED_GPIO,LOW);
+      delay(250);
+      digitalWrite(LED_GPIO,HIGH);      
     }
   }
 }
@@ -702,6 +772,10 @@ if (do_open || do_lock || do_unlock || do_status || do_toggle || do_pair)
     bool timeout=(millis() - starttime > LOCK_TIMEOUT *2000 +1000);
     bool finished=false;
 
+    digitalWrite(LED_GPIO,LOW);
+    delay(50);
+    digitalWrite(LED_GPIO,HIGH);
+
     if ((keyble->_LockStatus != -1) || timeout)
     {
       if(keyble->_LockStatus == 1)
@@ -710,7 +784,7 @@ if (do_open || do_lock || do_unlock || do_status || do_toggle || do_pair)
         if(timeout)
         {
           finished=true;
-          Serial.println("!!! Lockstatus 1 - timeout !!!");
+          Serial.println("!!! Lockstatus 1 - timeout1 !!!");
         }
       }
       else if(keyble->_LockStatus == -1)
@@ -720,7 +794,7 @@ if (do_open || do_lock || do_unlock || do_status || do_toggle || do_pair)
         {
           keyble->_LockStatus = 9; //timeout
           finished=true;
-          Serial.println("!!! Lockstatus -1 - timeout !!!");
+          Serial.println("!!! Lockstatus -1 - timeout2 !!!");
         }
       }
       else if(keyble->_LockStatus != 1)
@@ -749,4 +823,7 @@ if (do_open || do_lock || do_unlock || do_status || do_toggle || do_pair)
       }
     }
   }
+
+  esp_task_wdt_reset();
+
 }
