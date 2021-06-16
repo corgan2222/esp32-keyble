@@ -106,3 +106,5 @@ cmake-build-debug
 # End of https://www.gitignore.io/api/clion+all,platformio,visualstudiocode
 #
 secrets.h
+.vscode/launch.json
+.pio/build/project.checksum
