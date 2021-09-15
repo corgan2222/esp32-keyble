@@ -106,10 +106,14 @@ bool eQ3::onTick() {
                 //xSemaphoreGive(mutex); // function will take the semaphore again
                 queueFunc->second();
             }
-        } else {
+        } else if (state.connectionState != DISCONNECTED) {
             sendNextFragment();
             lastActivity = time(NULL);
-        }
+        }    
+        // } else {
+        //     sendNextFragment();
+        //     lastActivity = time(NULL);
+        // }
         // TODO disconnect if no answer for long time?
        /* if (state.connectionState >= CONNECTED && difftime(lastActivity, time(NULL)) > LOCK_TIMEOUT && sendQueue.empty()) {
             Serial.println("# Lock timeout");

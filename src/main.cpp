@@ -277,7 +277,7 @@ void MqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("# Message received: ");
     /*
   //pair
-  if (payload[0] == '6')
+  if (payload[0] == 'pair')
   {
     do_pair = true;
     mqtt_sub = "*** pair ***";
