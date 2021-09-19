@@ -2,6 +2,13 @@
 ESP32 port of the keyble library
 working, with some additions!
 
+ new features/changes from corgan: watchdog, status led, webserver auth
+
+- watchdog set WDT_TIMEOUT (sec) after this time the esp will reset if something hangs up
+- status LED on GPIO32: constant light=wifi conected, slow blink: mqtt conected and waiting, fast blink=conected to keyble
+- webserver auth, set WEBSERVER_USER and WEBSERVER_PW. Default admin:admin
+
+
 Thanks go to <a href="https://github.com/RoP09">RoP09</a>, <a href="https://github.com/tc-maxx">tc-maxx</a>, <a href="https://github.com/henfri">henfri</a>, <a href="https://github.com/MariusSchiffer">MariusSchiffer</a> and of course <a href="https://github.com/oyooyo">oyooyo</a> for their brillant work!
 
 
